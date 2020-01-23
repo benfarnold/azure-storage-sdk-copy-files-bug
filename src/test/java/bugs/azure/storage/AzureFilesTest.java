@@ -1,8 +1,6 @@
 package bugs.azure.storage;
 
 import com.azure.core.util.polling.SyncPoller;
-import com.azure.storage.file.share.ShareClient;
-import com.azure.storage.file.share.ShareClientBuilder;
 import com.azure.storage.file.share.ShareFileClient;
 import com.azure.storage.file.share.ShareFileClientBuilder;
 import com.azure.storage.file.share.models.ShareFileCopyInfo;
@@ -12,20 +10,12 @@ import org.junit.Test;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.UUID;
 
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
 
-public class AzureFilesTest {
-	private static final String ENDPOINT = "<File Service SAS URL>";
-	private static final int FILENAME_LENGTH = 8;
+public class AzureFilesTest extends SelfCleaningAzureFilesTest {
 	private static final long SOURCE_FILE_SIZE = 1024L;
-
-	// This is the helper method to generate random name.
-	private static String generateRandomName() {
-		return UUID.randomUUID().toString().substring(0, FILENAME_LENGTH);
-	}
 
 	private void upload(ShareFileClient uploadClient) {
 		byte[] data  = "Hello, file client sample!".getBytes(StandardCharsets.UTF_8);
@@ -41,19 +31,19 @@ public class AzureFilesTest {
 	private void copySourceToClient(String sourceURL, ShareFileClient dstFileClient) {
 		// Copy the file from source file to destination file.
 		//blows up at this line
-		SyncPoller<ShareFileCopyInfo, Void> poller = dstFileClient.beginCopy(sourceURL, null, Duration.ofSeconds(2));
+		SyncPoller<ShareFileCopyInfo, Void> poller = dstFileClient.beginCopy(sourceURL + SAS_TOKEN, null, Duration.ofSeconds(2));
 	}
 
 	//This test passes
 	@Test
 	public void uploadBytes() throws Exception {
-		runTestAndCleanUp(this::upload);
+		runTest(this::upload);
 	}
 
 	//this test fails on copy
 	@Test
 	public void copyFileDataInSource() throws Exception {
-		runTestAndCleanUp(srcFileClient -> {
+		runTest(srcFileClient -> {
 			upload(srcFileClient);
 
 			downloadFile(srcFileClient);
@@ -66,7 +56,7 @@ public class AzureFilesTest {
 	//this test fails on copy
 	@Test
 	public void copyFileDataInDestination() throws Exception {
-		runTestAndCleanUp(destFileClient -> {
+		runTest(destFileClient -> {
 			byte[] data  = "Hello, file client sample!".getBytes(StandardCharsets.UTF_8);
 			destFileClient.upload(new ByteArrayInputStream(data), data.length);
 
@@ -80,7 +70,7 @@ public class AzureFilesTest {
 	//this test fails on copy
 	@Test
 	public void copyFileAfterUploadingToBoth() throws Exception {
-		runTestAndCleanUp(srcFileClient -> {
+		runTest(srcFileClient -> {
 			//upload to source
 			upload(srcFileClient);
 
@@ -99,23 +89,19 @@ public class AzureFilesTest {
 		String fileName = generateRandomName();
 		ShareFileClient destFileClient = new ShareFileClientBuilder()
 				.endpoint(ENDPOINT)
+				.sasToken(SAS_TOKEN)
 				.shareName(shareName)
 				.resourcePath(fileName).buildFileClient();
 		destFileClient.create(SOURCE_FILE_SIZE);
 		return destFileClient;
 	}
 
-	private void runTestAndCleanUp(ThrowingFunction<ShareFileClient> test) throws Exception {
-		String shareName = "deleteme-" + generateRandomName();
-		ShareClient shareClient = new ShareClientBuilder()
-				.endpoint(ENDPOINT)
-				.shareName(shareName).buildClient();
-		try {
-			shareClient.create();
-
+	private void runTest(ThrowingFunction<ShareFileClient> test) throws Exception {
+		runTestAndCleanUp((String shareName) -> {
 			// Create a source file client
 			ShareFileClient srcFileClient = new ShareFileClientBuilder()
 					.endpoint(ENDPOINT)
+					.sasToken(SAS_TOKEN)
 					.shareName(shareName)
 					.resourcePath(generateRandomName()).buildFileClient();
 
@@ -123,15 +109,7 @@ public class AzureFilesTest {
 			srcFileClient.create(SOURCE_FILE_SIZE);
 
 			test.execute(srcFileClient);
-
-		} finally {
-			shareClient.delete();
-		}
-	}
-
-	@FunctionalInterface
-	interface ThrowingFunction<T> {
-		void execute(T t) throws Exception;
+		});
 	}
 
 }
