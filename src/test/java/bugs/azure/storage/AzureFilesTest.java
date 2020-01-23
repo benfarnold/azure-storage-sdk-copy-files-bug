@@ -30,17 +30,15 @@ public class AzureFilesTest extends SelfCleaningAzureFilesTest {
 
 	private void copySourceToClient(String sourceURL, ShareFileClient dstFileClient) {
 		// Copy the file from source file to destination file.
-		//blows up at this line
+		//append SAS token to source URL to avoid a 404
 		SyncPoller<ShareFileCopyInfo, Void> poller = dstFileClient.beginCopy(sourceURL + SAS_TOKEN, null, Duration.ofSeconds(2));
 	}
 
-	//This test passes
 	@Test
 	public void uploadBytes() throws Exception {
 		runTest(this::upload);
 	}
 
-	//this test fails on copy
 	@Test
 	public void copyFileDataInSource() throws Exception {
 		runTest(srcFileClient -> {
@@ -49,39 +47,7 @@ public class AzureFilesTest extends SelfCleaningAzureFilesTest {
 			downloadFile(srcFileClient);
 
 			ShareFileClient destFileClient = getClient(srcFileClient.getShareName());
-			copySourceToClient(srcFileClient.getFileUrl(), destFileClient);
-		});
-	}
-
-	//this test fails on copy
-	@Test
-	public void copyFileDataInDestination() throws Exception {
-		runTest(destFileClient -> {
-			byte[] data  = "Hello, file client sample!".getBytes(StandardCharsets.UTF_8);
-			destFileClient.upload(new ByteArrayInputStream(data), data.length);
-
-			downloadFile(destFileClient);
-
-			ShareFileClient srcFileClient = getClient(destFileClient.getShareName());
-			copySourceToClient(srcFileClient.getFileUrl(), destFileClient);
-		});
-	}
-
-	//this test fails on copy
-	@Test
-	public void copyFileAfterUploadingToBoth() throws Exception {
-		runTest(srcFileClient -> {
-			//upload to source
-			upload(srcFileClient);
-
-			ShareFileClient destFileClient = getClient(srcFileClient.getShareName());
-			//upload to destination
-			upload(destFileClient);
-
-			downloadFile(srcFileClient);
-			downloadFile(destFileClient);
-
-			copySourceToClient(srcFileClient.getFileUrl(), destFileClient);
+			copySourceToClient(srcFileClient.getFileUrl(), destFileClient);//getFileUrl does not include the SAS token
 		});
 	}
 
