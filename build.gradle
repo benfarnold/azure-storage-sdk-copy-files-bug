@@ -13,6 +13,18 @@ repositories {
 
 dependencies {
     compile group: 'com.azure', name: 'azure-storage-file-share', version: '12.1.0'
+    //logging
+    compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.13.0'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.13.0'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.13.0'
+
+    //debugging
+    // import BOM
+    implementation platform('io.projectreactor:reactor-bom:Dysprosium-SR1')
+
+    // add dependencies without a version number
+    implementation 'io.projectreactor:reactor-core'
+
     testCompile("org.hamcrest:hamcrest-library:1.3")
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
